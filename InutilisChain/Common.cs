@@ -85,7 +85,7 @@ public static class Common
         SendMessage(peer.client.GetStream(), json);
         if(command != Command.AKNOWLDEGE)
             ReceiveAndDecryptPacket(peer);
-        Console.WriteLine("Sent packet: " + command.ToString());
+        //Console.WriteLine("Sent packet: " + command.ToString());
     }
     
     public static Packet ReceiveAndDecryptPacket(Peer peer)
@@ -95,7 +95,7 @@ public static class Common
         Packet packet =  DeserializePacket(json);
         if (packet.command != Command.AKNOWLDEGE)
             SendEncryptedPacket(peer, Command.AKNOWLDEGE);
-        Console.WriteLine("Recived packet: " + packet.command.ToString());
+        //Console.WriteLine("Recived packet: " + packet.command.ToString());
         return packet;
     }
     

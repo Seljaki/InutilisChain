@@ -14,7 +14,9 @@ public class Block
     public int difficulty { get; set; }
     public string miner { get; set; }
     public Data data { get; set; }
-    
+    public Block()
+    {
+    }
     public Block(Data data, int index)
     {
         this.index = index;

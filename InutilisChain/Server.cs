@@ -28,7 +28,7 @@ public class Server
     public event NewPortSetHandler OnNewPortSet;
     private bool listenToNewPears = true;
     TcpListener serverListener = null;
-    public string minerName = "default";
+    public string minerName = "Miner" + Guid.NewGuid().ToString();
 
     public const int NUM_OF_THREADS = 12;
     public Queue<Data> dataQueue = new Queue<Data>();
@@ -115,6 +115,7 @@ public class Server
         if (blockChain.getCount() == 0)
         {
             RequestBlockChain(peer);
+            RequestData(peer);
         }
         else
         {
@@ -124,6 +125,7 @@ public class Server
             if (other_difficulty > my_difficulty)
             {
                 RequestBlockChain(peer);
+                RequestData(peer);
             }
         }
     }
@@ -149,14 +151,22 @@ public class Server
                 {
                     Block block = Block.Deserialize(packet.message);
                     if (!blockChain.addBlock(block) && !blockChain.isInBlockchain(block))
+                    {
                         syncBlockChainWithPeer(peer);
+                    }
                     else
                         BroadCastPacket(Peers, Command.NEW_BLOCK, packet.message);
+                    if (block.data.UUID == dataQueue.Peek().UUID)
+                        dataQueue.Dequeue();
                     //OnBlockMined?.Invoke(block);
                 }
                 else if (packet.command == Command.REQUEST_BLOCKCHAIN)
                 {
                     SendBlockChainToPeer(peer);
+                }
+                else if (packet.command == Command.REQUEST_DATA)
+                {
+                    SendDataToPeer(peer);
                 }
                 else if (packet.command == Command.DISSCONECT)
                     break;
@@ -168,6 +178,8 @@ public class Server
                     if (my_diff < diff)
                     {
                         RequestBlockChain(peer);
+                        dataQueue.Clear();
+                        RequestData(peer);
                     }
                 }
             }
@@ -194,6 +206,14 @@ public class Server
             //Blocks = blockChain.getBlockChain();
        // } while (old != Blocks);
     }
+    
+    void SendDataToPeer(Peer peer)
+    {
+        var datas = dataQueue.ToList();
+        foreach (Data data in datas)
+            SendEncryptedPacket(peer, Command.REQUESTED_DATA, data.Serialize());
+        SendEncryptedPacket(peer, Command.END_OF_SYNC);
+    }
 
     void RequestBlockChain(Peer peer)
     {
@@ -215,6 +235,25 @@ public class Server
             blocks.Add(block);
 
         blockChain.setBlockChain(blocks);
+    }
+    
+    void RequestData(Peer peer)
+    {
+        SendEncryptedPacket(peer, Command.REQUEST_DATA);
+        List<Data> missed = new List<Data>();
+        while (true)
+        {
+            Packet packet = ReceiveAndDecryptPacket(peer);
+            if (packet.command == Command.END_OF_SYNC || packet.command == Command.ERROR)
+                break;
+            if (packet.command == Command.REQUESTED_DATA)
+                dataQueue.Enqueue(Data.Deserialize(packet.message));
+            if (packet.command == Command.NEW_DATA)
+                missed.Add(Data.Deserialize(packet.message));
+        }
+
+        foreach (var data in missed)
+            dataQueue.Enqueue(data);
     }
     
     void CreateNewChain()
@@ -250,6 +289,8 @@ public class Server
         {
             Console.WriteLine("New block is valid, adding it to the chain");
             PrintByteArray(newBlock.hash);
+            if (dataQueue.Peek().UUID == newBlock.data.UUID)
+                dataQueue.Dequeue();
             if(blockChain.addBlock(newBlock))
             {
                 BroadCastPacket(Peers, Command.NEW_BLOCK, newBlock.Serialize());
@@ -298,7 +339,7 @@ public class Server
         SHA256 sha256 = SHA256.Create();
         while (doMining)
         {
-            if (dataQueue.Count > 0)
+            if (doMining && dataQueue.Count > 0)
             {
                 Data data = Data.Deserialize(dataQueue.Peek().Serialize());
                 
@@ -306,7 +347,7 @@ public class Server
                 block.miner = minerName;
                 block.nonce = rnd.Next();
 
-                while (dataQueue.Count > 0 && dataQueue.Peek().UUID == data.UUID)
+                while (doMining && dataQueue.Count > 0 && dataQueue.Peek().UUID == data.UUID)
                 {
                     
                     block.previousHash = blockChain.getLastBlock().hash;

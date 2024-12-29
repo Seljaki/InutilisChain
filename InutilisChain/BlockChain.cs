@@ -131,4 +131,12 @@ public class BlockChain
             return false;
         return true;
     }
+    
+    public void Print()
+    {
+        foreach (Block block in blocks)
+        {
+            Console.WriteLine(block.Serialize());
+        }
+    }
 }
