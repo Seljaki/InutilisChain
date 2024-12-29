@@ -146,9 +146,9 @@ class TerminalControl
     private static void FillTestData()
     {
         Random random = new Random();
-        for (int i = 0; i < 30; i++)
+        for (int i = 0; i < 5; i++)
         {
-            server.dataQueue.Enqueue(
+            server.onNewData(
                 new Data(
                     Guid.NewGuid().ToString(),                       // Random unique identifier
                     random.Next(0, 100),                             // Random integer between 0 and 100

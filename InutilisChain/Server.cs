@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
-using System.Threading;
 using static InutilisChain.Common;
 
 namespace InutilisChain;
@@ -36,7 +31,7 @@ public class Server
     public string minerName = "Miner" + Guid.NewGuid().ToString();
 
     public const int NUM_OF_THREADS = 12;
-    public ConcurrentQueue<Data> dataQueue = new ConcurrentQueue<Data>();
+    public Queue<Data> dataQueue = new Queue<Data>();
         
     public Server()
     {
@@ -115,6 +110,15 @@ public class Server
         }
     }
 
+    public void onNewData(Data data)
+    {
+        if (dataQueue.Count == 0 || dataQueue.Count > 0 && dataQueue.Peek().UUID != data.UUID)
+        {
+            BroadCastPacket(Peers, Command.NEW_DATA, data.Serialize());
+            dataQueue.Enqueue(data);
+        }
+    }
+
     void syncBlockChainWithPeer(Peer peer)
     {
         if (blockChain.getCount() == 0)
@@ -161,10 +165,8 @@ public class Server
                     }
                     else
                         BroadCastPacket(Peers, Command.NEW_BLOCK, packet.message);
-                    if (dataQueue.TryPeek(out Data queueData) && block.data.UUID == queueData.UUID)
-                    {
-                        dataQueue.TryDequeue(out _);
-                    }
+                    if (dataQueue.Count > 0 && block.data.UUID == dataQueue.Peek().UUID)
+                        dataQueue.Dequeue();
                     //OnBlockMined?.Invoke(block);
                 }
                 else if (packet.command == Command.REQUEST_BLOCKCHAIN)
@@ -174,6 +176,10 @@ public class Server
                 else if (packet.command == Command.REQUEST_DATA)
                 {
                     SendDataToPeer(peer);
+                }
+                else if (packet.command == Command.NEW_DATA)
+                {
+                    onNewData(Data.Deserialize(packet.message));
                 }
                 else if (packet.command == Command.DISSCONECT)
                     break;
@@ -290,30 +296,21 @@ public class Server
 
     void OnNewBlockRecived(Block newBlock)
     {
-        Console.WriteLine("New block received: " + newBlock.Serialize());
-
+        //if(Blocks.Last().index =< newBlock.index)
+        Console.WriteLine("New block recieved: " + newBlock.Serialize());
         if (blockChain.canBeAdded(newBlock))
         {
             Console.WriteLine("New block is valid, adding it to the chain");
             PrintByteArray(newBlock.hash);
-
-            // Safely check and remove data from the queue if it matches
-            if (dataQueue.TryPeek(out Data currentData) && currentData.UUID == newBlock.data.UUID)
-            {
-                dataQueue.TryDequeue(out _);
-            }
-
-            if (blockChain.addBlock(newBlock))
+            if (dataQueue.Count > 0 && dataQueue.Peek().UUID == newBlock.data.UUID)
+                dataQueue.Dequeue();
+            if(blockChain.addBlock(newBlock))
             {
                 BroadCastPacket(Peers, Command.NEW_BLOCK, newBlock.Serialize());
-            
-                // Safely check and remove data from the queue again if necessary
-                if (dataQueue.TryPeek(out currentData) && currentData.UUID == newBlock.data.UUID)
-                {
-                    dataQueue.TryDequeue(out _);
-                }
-
-                Console.WriteLine("Blockchain length: " + blockChain.getCount());
+                // remove data from the stack
+                if (dataQueue.Count > 0 && dataQueue.Peek().UUID == newBlock.data.UUID)
+                    dataQueue.Dequeue();
+                Console.WriteLine("Blockchain lenght: " + blockChain.getCount());
             }
         }
     }
@@ -355,29 +352,30 @@ public class Server
         SHA256 sha256 = SHA256.Create();
         while (doMining)
         {
-            if (doMining && dataQueue.TryPeek(out Data data))
+            if (doMining && dataQueue.Count > 0)
             {
-                Data dataCopy = Data.Deserialize(data.Serialize()); // Make a copy if necessary
-
-                Block block = new Block(dataCopy, blockChain.getLastIndex() + 1, blockChain.getLastBlock().hash);
+                Data data = Data.Deserialize(dataQueue.Peek().Serialize());
+                
+                Block block = new Block(data, blockChain.getLastIndex() + 1, blockChain.getLastBlock().hash);
                 block.miner = minerName;
                 block.nonce = rnd.Next();
 
-                while (doMining && dataQueue.TryPeek(out Data currentData) && currentData.UUID == data.UUID)
+                while (doMining && dataQueue.Count > 0 && dataQueue.Peek().UUID == data.UUID)
                 {
+                    
                     block.previousHash = blockChain.getLastBlock().hash;
                     block.index = blockChain.getLastIndex() + 1;
                     block.difficulty = GetCurrentDifficulty();
                     block.setTimeStamp();
                     block.calculateAndSetHash(sha256);
 
+                    //if (block.nonce % 1000 == 0)
+                        //Console.WriteLine(GetCurrentDifficulty());
+
                     if (blockChain.canBeAdded(block))
                     {
                         OnBlockMined?.Invoke(block);
-
-                        // Remove the processed data from the queue
-                        dataQueue.TryDequeue(out _);
-
+                        
                         break;
                     }
 
