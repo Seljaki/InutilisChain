@@ -4,10 +4,10 @@ using System;
 using System.Security.Cryptography;
 using InutilisChain;
 
-/*Console.WriteLine("Hello, World!");
+Console.WriteLine("Hello, World!");
 Prediction prediction = new Prediction(0.1,0.4,0.5);
 Data data = new Data(Guid.NewGuid().ToString(),13, 45.62131, 16.3454, prediction);
-Console.WriteLine(data.Serialize());
+Console.WriteLine(data.Serialize());/*
 
 
 Block currentBlock = new Block(new Data(Guid.NewGuid().ToString(), 0,0,0, new Prediction(1,0,0)), 0);
@@ -25,4 +25,7 @@ for (int i = 0; i < 10000; i++)
 
 server.StartMining();
 server.StartServer();*/
-TerminalControl.Main(args);
+var server = new MqttBlockchainServer();
+server.StartServer();
+Console.ReadLine();
+//TerminalControl.Main(args);
