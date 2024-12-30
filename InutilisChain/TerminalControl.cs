@@ -114,7 +114,6 @@ class TerminalControl
                     break;
                 case "9":
                     mqttBlockchainServer.StartServer();
-                    blockchainServer.OnBlockMined += mqttBlockchainServer.NotifySubscribersOfNewBlock;
                     break;
                 case "0":
                     isRunning = false;

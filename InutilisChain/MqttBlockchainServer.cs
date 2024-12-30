@@ -9,6 +9,7 @@ public class MqttBlockchainServer
 {
     private IMqttServer? mqttServer;
     private BlockchainServer blockChainServer;
+    private const int PORT = 3001;
 
     public MqttBlockchainServer(BlockchainServer blockChainServer)
     {
@@ -26,7 +27,7 @@ public class MqttBlockchainServer
         Console.WriteLine("Starting MQTT Blockchain BlockchainServer...");
         var mqttServerOptions = new MqttServerOptionsBuilder()
             .WithDefaultEndpoint()
-            .WithDefaultEndpointPort(3001)
+            .WithDefaultEndpointPort(PORT)
             .Build();
 
         mqttServer = new MqttFactory().CreateMqttServer();

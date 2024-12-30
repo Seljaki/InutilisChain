@@ -30,7 +30,7 @@ public class BlockchainServer
     TcpListener serverListener = null;
     public string minerName = "Miner" + Guid.NewGuid().ToString();
 
-    public const int NUM_OF_THREADS = 12;
+    public const int NUM_OF_THREADS = 1;
     public Queue<Data> dataQueue = new Queue<Data>();
         
     public BlockchainServer()
