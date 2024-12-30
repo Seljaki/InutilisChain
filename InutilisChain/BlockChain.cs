@@ -106,8 +106,8 @@ public class BlockChain
     
     public static bool isValidBlock(Block lastBlock, Block newBlock)
     {
-        if (!VerifyTimeAgainstPreviousBlock(lastBlock, newBlock) || !VerifyTimeWithLocalTime(newBlock))
-            return false;
+        //if (!VerifyTimeAgainstPreviousBlock(lastBlock, newBlock) || !VerifyTimeWithLocalTime(newBlock))
+        //    return false;
 
         //PrintByteArray(newBlock.hash);
         // check difficulty

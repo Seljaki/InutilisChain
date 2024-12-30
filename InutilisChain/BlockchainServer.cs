@@ -358,11 +358,10 @@ public class BlockchainServer
                 
                 Block block = new Block(data, blockChain.getLastIndex() + 1, blockChain.getLastBlock().hash);
                 block.miner = minerName;
-                block.nonce = rnd.Next();
 
                 while (doMining && dataQueue.Count > 0 && dataQueue.Peek().UUID == data.UUID)
                 {
-                    
+                    block.nonce = rnd.Next();
                     block.previousHash = blockChain.getLastBlock().hash;
                     block.index = blockChain.getLastIndex() + 1;
                     block.difficulty = GetCurrentDifficulty();
