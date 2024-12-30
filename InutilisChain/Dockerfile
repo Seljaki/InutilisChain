@@ -15,4 +15,7 @@ RUN dotnet publish "InutilisChain.csproj" -c Release -o /app/publish /p:UseAppHo
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "InutilisChain.dll"]
+ENTRYPOINT ["dotnet", "InutilisChain.dll", "-server"]
+
+# MQTT PORT: 3001
+# BLOCKCHAIN SERVER PORT: 6969
