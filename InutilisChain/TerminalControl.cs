@@ -8,12 +8,13 @@ using System.Threading;
 
 class TerminalControl
 {
-    private static Server server = new Server();
+    private static BlockchainServer blockchainServer = new BlockchainServer();
     private static bool isRunning = true;
+    private static MqttBlockchainServer mqttBlockchainServer = new MqttBlockchainServer(blockchainServer);
 
     public static void Main(string[] args)
     {
-        Console.WriteLine("Blockchain Server Control Terminal");
+        Console.WriteLine("Blockchain BlockchainServer Control Terminal");
         Console.WriteLine("Type 'help' for a list of commands.");
         PrintHelp();
 
@@ -34,21 +35,21 @@ class TerminalControl
                 case "1":
                     if (serverThread == null || !serverThread.IsAlive)
                     {
-                        serverThread = new Thread(() => server.StartServer());
+                        serverThread = new Thread(() => blockchainServer.StartServer());
                         serverThread.Start();
-                        Console.WriteLine("Server started.");
+                        Console.WriteLine("BlockchainServer started.");
                     }
                     else
                     {
-                        Console.WriteLine("Server is already running.");
+                        Console.WriteLine("BlockchainServer is already running.");
                     }
                     break;
 
                 case "2":
                     if (miningThread == null || !miningThread.IsAlive)
                     {
-                        server.StartMining();
-                       // miningThread = new Thread(() => server.StartMining());
+                        blockchainServer.StartMining();
+                       // miningThread = new Thread(() => blockchainServer.StartMining());
                         //miningThread.Start();
                         Console.WriteLine("Mining started.");
                     }
@@ -72,27 +73,27 @@ class TerminalControl
                     if (string.IsNullOrEmpty(peerPort))
                         peerPort = "6969";
 
-                    server.ConnectToPeer(IPAddress.Parse(peerAddress), int.Parse(peerPort));
+                    blockchainServer.ConnectToPeer(IPAddress.Parse(peerAddress), int.Parse(peerPort));
                     Console.WriteLine($"Connected to peer: {peerAddress}");
                     break;
 
                 case "5":
                     if (serverThread != null && serverThread.IsAlive)
                     {
-                        //server.StopServer();
+                        //blockchainServer.StopServer();
                         serverThread.Join(); // Wait for the thread to stop
-                        Console.WriteLine("Server stopped.");
+                        Console.WriteLine("BlockchainServer stopped.");
                     }
                     else
                     {
-                        Console.WriteLine("Server is not running.");
+                        Console.WriteLine("BlockchainServer is not running.");
                     }
                     break;
 
                 case "6":
-                    if (server.doMining)
+                    if (blockchainServer.doMining)
                     {
-                        server.doMining = false;
+                        blockchainServer.doMining = false;
                         Console.WriteLine("Mining stopped.");
                     }
                     else
@@ -103,18 +104,17 @@ class TerminalControl
 
                 case "7":
                     Console.WriteLine("Current Blockchain:");
-                    server.blockChain.Print();
+                    blockchainServer.blockChain.Print();
                     break;
                 case "8":
                     Console.WriteLine("Current Data:");
-                    var datas = server.dataQueue.ToList();
+                    var datas = blockchainServer.dataQueue.ToList();
                     foreach (var data in datas)
                         Console.WriteLine(data.Serialize());
                     break;
                 case "9":
-                    Console.WriteLine("Current Data:");
-                    var block = server.blockChain.getBlockAt(0);
-                    Console.WriteLine(block.Serialize());
+                    mqttBlockchainServer.StartServer();
+                    blockchainServer.OnBlockMined += mqttBlockchainServer.NotifySubscribersOfNewBlock;
                     break;
                 case "0":
                     isRunning = false;
@@ -132,14 +132,15 @@ class TerminalControl
     private static void PrintHelp()
     {
         Console.WriteLine("Available Commands:");
-        Console.WriteLine(" 1  enable server    - Starts the server.");
+        Console.WriteLine(" 1  enable blockchainServer    - Starts the blockchainServer.");
         Console.WriteLine(" 2  start mining     - Starts mining blocks.");
         Console.WriteLine(" 3  fill test data   - Fills the data queue with test data.");
         Console.WriteLine(" 4  connect peer     - Connects to another peer.");
-        Console.WriteLine(" 5  stop server      - Stops the server.");
+        Console.WriteLine(" 5  stop blockchainServer      - Stops the blockchainServer.");
         Console.WriteLine(" 6  stop mining      - Stops mining.");
         Console.WriteLine(" 7  output blockchain- Displays the current blockchain.");
         Console.WriteLine(" 8  output data      - Displays the current data.");
+        Console.WriteLine(" 9  start mqtt blockchainServer");
         Console.WriteLine(" 0  exit             - Exits the terminal.");
     }
 
@@ -148,7 +149,7 @@ class TerminalControl
         Random random = new Random();
         for (int i = 0; i < 5; i++)
         {
-            server.onNewData(
+            blockchainServer.onNewData(
                 new Data(
                     Guid.NewGuid().ToString(),                       // Random unique identifier
                     random.Next(0, 100),                             // Random integer between 0 and 100
@@ -174,13 +175,13 @@ class TerminalControl
     {
         if (serverThread != null && serverThread.IsAlive)
         {
-            //server.StopServer();
+            //blockchainServer.StopServer();
             serverThread.Join();
         }
 
         if (miningThread != null && miningThread.IsAlive)
         {
-            server.doMining = false;
+            blockchainServer.doMining = false;
             miningThread.Join();
         }
     }

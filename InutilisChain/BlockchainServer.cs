@@ -10,7 +10,7 @@ public class Miner
     
 }
 
-public class Server
+public class BlockchainServer
 {
     private const int STD_PORT = 6969;
     
@@ -33,7 +33,7 @@ public class Server
     public const int NUM_OF_THREADS = 12;
     public Queue<Data> dataQueue = new Queue<Data>();
         
-    public Server()
+    public BlockchainServer()
     {
         OnBlockMined += OnNewBlockRecived;
         //Blocks = new List<Block>();
@@ -43,7 +43,7 @@ public class Server
     
     public void StartServer()
     {
-        Console.WriteLine("Server");
+        Console.WriteLine("BlockchainServer");
         OnNewLog?.Invoke("Starting server!");
         listenToNewPears = true;
         bool foundPort = false;
