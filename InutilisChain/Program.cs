@@ -16,7 +16,7 @@ using (var sha256 = SHA256.Create())
     currentBlock.calculateAndSetHash(sha256);
 Console.WriteLine(Block.Deserialize(currentBlock.Serialize()).Serialize());*/
 
-/*Server server = new Server();
+/*BlockchainServer server = new BlockchainServer();
 for (int i = 0; i < 10000; i++)
 {
     server.dataQueue.Enqueue(new Data(Guid.NewGuid().ToString(), 13, 45.62131, 16.3454, prediction));
@@ -25,7 +25,7 @@ for (int i = 0; i < 10000; i++)
 
 server.StartMining();
 server.StartServer();*/
-var server = new MqttBlockchainServer();
-server.StartServer();
-Console.ReadLine();
-//TerminalControl.Main(args);
+//var server = new MqttBlockchainServer();
+//server.StartServer();
+//Console.ReadLine();
+TerminalControl.Main(args);
