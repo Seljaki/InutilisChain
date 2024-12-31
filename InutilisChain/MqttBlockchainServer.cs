@@ -9,7 +9,7 @@ public class MqttBlockchainServer
 {
     private IMqttServer? mqttServer;
     private BlockchainServer blockChainServer;
-    private const int PORT = 3001;
+    private const int PORT = 3335;
 
     public MqttBlockchainServer(BlockchainServer blockChainServer)
     {
