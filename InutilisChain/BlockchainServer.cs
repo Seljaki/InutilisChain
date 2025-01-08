@@ -372,41 +372,51 @@ public class BlockchainServer
         {
             while (true)
             {
-                CompletedStatus status;
-                string request;
-                comm.Receive<string>(Communicator.anySource, Communicator.anyTag, out request, out status); // Listen for messages with tag 100
-                int senderRank = status.Source; 
-                //Console.WriteLine("Got request " + request);
-
-                if (request == "get_data")
+                try
                 {
-                    if (doMining && dataQueue.Count > 0)
+                    CompletedStatus status;
+                    string request;
+                    comm.Receive<string>(Communicator.anySource, Communicator.anyTag, out request, out status); // Listen for messages with tag 100
+                    int senderRank = status.Source;
+                    //Console.WriteLine("Got request " + request);
+
+                    if (request == "get_data")
                     {
-                        Data data = dataQueue.Peek();
-                        Block block = blockChain.getLastBlock();
-                        DataAndBlock db = new DataAndBlock(data, block);
-                        //Console.WriteLine("Sending data block " + db.Serialize());
-                        comm.Send(db.Serialize(), senderRank, 1);
+                        if (doMining && dataQueue.Count > 0)
+                        {
+                            Data data = dataQueue.Peek();
+                            Block block = blockChain.getLastBlock();
+                            DataAndBlock db = new DataAndBlock(data, block);
+                            //Console.WriteLine("Sending data block " + db.Serialize());
+                            comm.Send(db.Serialize(), senderRank, 1);
+                        }
+                        else
+                        {
+                            comm.Send("", senderRank, 1);
+                        }
                     }
-                    else
+                    else if (request.StartsWith("block_mined"))
                     {
-                        comm.Send("", senderRank, 1);
+                        string jsonBlock = request.Substring("block_mined".Length);
+                        Block minedBlock = Block.Deserialize(jsonBlock);
+                        if (dataQueue.Peek().UUID == minedBlock.data.UUID && blockChain.canBeAdded(minedBlock))
+                        {
+                            OnBlockMined?.Invoke(minedBlock);
+                            for (int i = 1; i < Communicator.world.Size; i++)
+                                if (i != senderRank)
+                                    comm.Send("stop", i, 300); // Tag 300 for stop signal
+
+                            Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
+                        }
                     }
                 }
-                else if (request.StartsWith("block_mined"))
+                catch (Exception e)
                 {
-                    string jsonBlock = request.Substring("block_mined".Length);
-                    Block minedBlock = Block.Deserialize(jsonBlock);
-                    if (dataQueue.Peek().UUID == minedBlock.data.UUID && blockChain.canBeAdded(minedBlock))
-                    {
-                        OnBlockMined?.Invoke(minedBlock);
-                        
-                        Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
-                    }
+                    Console.WriteLine(e);
                 }
             }
         }
@@ -422,12 +432,12 @@ public class BlockchainServer
         {
             while (true)
             {
-                //Console.WriteLine("Sending get data request " + rank);
+                Console.WriteLine("Sending get data request " + rank);
                 comm.Send("get_data", 0, 100);
                 string data = comm.Receive<string>(0, Communicator.anyTag);
                 //Console.WriteLine("Got data " + data);
 
-                if (string.IsNullOrEmpty(data))
+                if (string.IsNullOrEmpty(data) || data == "stop")
                 {
                     //Thread.Sleep(1000);
                     continue;
@@ -449,6 +459,17 @@ public class BlockchainServer
                     {
                         comm.Send($"block_mined{block.Serialize()}", 0, 200);
                         break;
+                    }
+                    
+                    // Listen for a "stop" signal from the server
+                    if (comm.ImmediateProbe(0, 300) != null) // Non-blocking check for stop signal
+                    {
+                        string stopSignal = comm.Receive<string>(0, 300);
+                        if (stopSignal == "stop")
+                        {
+                            Console.WriteLine($"Miner {rank} received stop signal. Halting mining.");
+                            break;
+                        }
                     }
 
                     block.nonce++;
