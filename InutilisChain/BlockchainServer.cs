@@ -402,7 +402,11 @@ public class BlockchainServer
                         OnBlockMined?.Invoke(minedBlock);
                         
                         Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
-                    } 
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
+                    }
                 }
             }
         }
