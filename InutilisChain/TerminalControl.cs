@@ -48,7 +48,7 @@ class TerminalControl
                 case "2":
                     if (miningThread == null || !miningThread.IsAlive)
                     {
-                        blockchainServer.StartMining();
+                        //blockchainServer.StartMining();
                        // miningThread = new Thread(() => blockchainServer.StartMining());
                         //miningThread.Start();
                         Console.WriteLine("Mining started.");

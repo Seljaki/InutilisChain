@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using MPI;
 using static InutilisChain.Common;
 
 namespace InutilisChain;
@@ -280,18 +281,12 @@ public class BlockchainServer
         //blockChain.addBlock(currentBlock);
     }
 
-    public void StartMining()
+    public void StartMining(int rank)
     {
         doMining = true;
         if(blockChain.getCount() == 0)
             CreateNewChain();
-
-        for (int i = 0; i < NUM_OF_THREADS; i++)
-        {
-            Thread miningThread = new Thread(Mine);
-            miningThread.IsBackground = true;
-            miningThread.Start();
-        }
+        MPIServer(rank);
     }
 
     void OnNewBlockRecived(Block newBlock)
@@ -315,9 +310,8 @@ public class BlockchainServer
         }
     }
     
-    int GetCurrentDifficulty()
+    static int GetCurrentDifficulty(Block prevAdjustmentBlock)
     {
-        Block prevAdjustmentBlock = blockChain.getBlockAt(blockChain.getCount() - DIFFICULTY_ADJUSTMENT_INTERVAL);
         long timeExpected = BLOCK_GENERATION_INTERVAL * DIFFICULTY_ADJUSTMENT_INTERVAL;
         long timeTaken = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - prevAdjustmentBlock.timestamp;
         if (timeTaken < (timeExpected / 2))
@@ -343,50 +337,6 @@ public class BlockchainServer
             difficulty += (ulong)Math.Pow(2, block.difficulty);
 
         return difficulty;
-    }
-    
-    void Mine()
-    {
-        Console.WriteLine("Started mining");
-        Random rnd = new Random();
-        SHA256 sha256 = SHA256.Create();
-        while (doMining)
-        {
-            if (doMining && dataQueue.Count > 0)
-            {
-                Data data = Data.Deserialize(dataQueue.Peek().Serialize());
-                
-                Block block = new Block(data, blockChain.getLastIndex() + 1, blockChain.getLastBlock().hash);
-                block.miner = minerName;
-
-                while (doMining && dataQueue.Count > 0 && dataQueue.Peek().UUID == data.UUID)
-                {
-                    block.nonce = rnd.Next();
-                    block.previousHash = blockChain.getLastBlock().hash;
-                    block.index = blockChain.getLastIndex() + 1;
-                    block.difficulty = GetCurrentDifficulty();
-                    block.setTimeStamp();
-                    block.calculateAndSetHash(sha256);
-
-                    //if (block.nonce % 1000 == 0)
-                        //Console.WriteLine(GetCurrentDifficulty());
-
-                    if (blockChain.canBeAdded(block))
-                    {
-                        OnBlockMined?.Invoke(block);
-                        
-                        break;
-                    }
-
-                    block.nonce++;
-                }
-            }
-            else
-            {
-                // Optional: Add a small delay to prevent busy-waiting
-                Thread.Sleep(1000);
-            }
-        }
     }
 
     public void DissconectFromAllPeers()
@@ -415,7 +365,94 @@ public class BlockchainServer
         }
         Peers.Clear();
     }
+
+    private void MPIServer(int rank)
+    {
+        using (var comm = Intracommunicator.world)
+        {
+            while (true)
+            {
+                CompletedStatus status;
+                string request;
+                comm.Receive<string>(Communicator.anySource, Communicator.anyTag, out request, out status); // Listen for messages with tag 100
+                int senderRank = status.Source; 
+                //Console.WriteLine("Got request " + request);
+
+                if (request == "get_data")
+                {
+                    if (doMining && dataQueue.Count > 0)
+                    {
+                        Data data = dataQueue.Peek();
+                        Block block = blockChain.getLastBlock();
+                        DataAndBlock db = new DataAndBlock(data, block);
+                        //Console.WriteLine("Sending data block " + db.Serialize());
+                        comm.Send(db.Serialize(), senderRank, 1);
+                    }
+                    else
+                    {
+                        comm.Send("", senderRank, 1);
+                    }
+                }
+                else if (request.StartsWith("block_mined"))
+                {
+                    string jsonBlock = request.Substring("block_mined".Length);
+                    Block minedBlock = Block.Deserialize(jsonBlock);
+                    if (dataQueue.Peek().UUID == minedBlock.data.UUID && blockChain.canBeAdded(minedBlock))
+                    {
+                        OnBlockMined?.Invoke(minedBlock);
+                        
+                        Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
+                    } 
+                }
+            }
+        }
+        Console.WriteLine("Stopped server");
+    }
     
+    public static void MPIClient(int rank)
+    {
+        Random rnd = new Random();
+        SHA256 sha256 = SHA256.Create();
+        Console.WriteLine("Starting client " + rank);
+        using (var comm = Intracommunicator.world)
+        {
+            while (true)
+            {
+                //Console.WriteLine("Sending get data request " + rank);
+                comm.Send("get_data", 0, 100);
+                string data = comm.Receive<string>(0, Communicator.anyTag);
+                //Console.WriteLine("Got data " + data);
+
+                if (string.IsNullOrEmpty(data))
+                {
+                    //Thread.Sleep(1000);
+                    continue;
+                }
+
+                DataAndBlock db = DataAndBlock.Deserialize(data);
+                
+                Block block = new Block(db.data, db.block.index + 1, db.block.hash);
+                block.miner = "miner" + rank;
+
+                while (true)
+                {
+                    block.nonce = rnd.Next();
+                    block.difficulty = GetCurrentDifficulty(db.block);
+                    block.setTimeStamp();
+                    block.calculateAndSetHash(sha256);
+                    
+                    if (BlockChain.isValidBlock(db.block, block))
+                    {
+                        comm.Send($"block_mined{block.Serialize()}", 0, 200);
+                        break;
+                    }
+
+                    block.nonce++;
+                }
+            }
+        }
+        Console.WriteLine("Stopped client");
+    }
     void DissconectPeer(Peer peer)
     {
         Console.WriteLine("Dissconecting peer");

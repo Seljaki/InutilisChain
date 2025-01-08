@@ -5,6 +5,21 @@ using System.Text.Json;
 
 namespace InutilisChain;
 
+public class DataAndBlock
+{
+    public Data data { get; set; }
+    public Block block { get; set; }
+
+    public DataAndBlock(Data data, Block block)
+    {
+        this.data = data;
+        this.block = block;
+    }
+    
+    public string Serialize() => JsonSerializer.Serialize(this);
+    public static DataAndBlock Deserialize(string json) => JsonSerializer.Deserialize<DataAndBlock>(json);
+}
+
 public class Block
 {
     public int index { get; set; }
