@@ -18,8 +18,8 @@ public static class Common
 {
     public const int STD_MSG_SIZE = 4096;
     public const string ENCRYPTION_KEY = "15-slc";
-    public const int BLOCK_GENERATION_INTERVAL = 600; // v sekundah, 1 minuta
-    public const int DIFFICULTY_ADJUSTMENT_INTERVAL = 20;
+    public const int BLOCK_GENERATION_INTERVAL = 6; // v sekundah, 1 minuta
+    public const int DIFFICULTY_ADJUSTMENT_INTERVAL = 1;
 
     public static bool isValidBlock(Block lastBlock, Block newBlock)
     {
