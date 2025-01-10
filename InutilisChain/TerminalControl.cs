@@ -11,6 +11,7 @@ class TerminalControl
     private static BlockchainServer blockchainServer = new BlockchainServer();
     private static bool isRunning = true;
     private static MqttBlockchainServer mqttBlockchainServer = new MqttBlockchainServer(blockchainServer);
+    private static RESTServer restServer = new RESTServer(blockchainServer);
 
     public static void Main(string[] args)
     {
@@ -20,6 +21,7 @@ class TerminalControl
 
         Thread serverThread = null;
         Thread miningThread = null;
+        Thread restThread = null;
 
         while (isRunning)
         {
@@ -115,6 +117,10 @@ class TerminalControl
                 case "9":
                     mqttBlockchainServer.StartServer();
                     break;
+                case "10":
+                    restThread = new Thread(() => restServer.Start());
+                    restThread.Start();
+                    break;
                 case "0":
                     isRunning = false;
                     StopAll(serverThread, miningThread);
@@ -140,6 +146,7 @@ class TerminalControl
         Console.WriteLine(" 7  output blockchain- Displays the current blockchain.");
         Console.WriteLine(" 8  output data      - Displays the current data.");
         Console.WriteLine(" 9  start mqtt blockchainServer");
+        Console.WriteLine(" 10 start rest blockchain server");
         Console.WriteLine(" 0  exit             - Exits the terminal.");
     }
 
