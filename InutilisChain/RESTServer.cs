@@ -29,7 +29,7 @@ public class RESTServer
         app.UseRouting();
         app.MapControllers();
 
-        app.Run($"http://localhost:{PORT}");
+        app.Run($"http://0.0.0.0:{PORT}");
     }
 }
 
