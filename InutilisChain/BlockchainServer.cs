@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using MPI;
@@ -8,22 +9,25 @@ namespace InutilisChain;
 
 public class Miner
 {
-    
 }
 
 public class BlockchainServer
 {
     private const int STD_PORT = 6969;
-    
+
     private List<Peer> Peers;
+
     //public List<Block> Blocks;
     public BlockChain blockChain;
 
     public bool doMining = true;
-    
+
     public delegate void NewPortSetHandler(int port);
+
     public delegate void BlockMinedEventHandler(Block newBlock);
+
     public delegate void OnLog(string log);
+
     public event BlockMinedEventHandler OnBlockMined;
     public event OnLog OnNewLog;
     public event NewPortSetHandler OnNewPortSet;
@@ -33,7 +37,7 @@ public class BlockchainServer
 
     public const int NUM_OF_THREADS = 1;
     public Queue<Data> dataQueue = new Queue<Data>();
-        
+
     public BlockchainServer()
     {
         OnBlockMined += OnNewBlockRecived;
@@ -41,7 +45,7 @@ public class BlockchainServer
         blockChain = new BlockChain();
         Peers = new List<Peer>();
     }
-    
+
     public void StartServer()
     {
         Console.WriteLine("BlockchainServer");
@@ -54,7 +58,9 @@ public class BlockchainServer
         {
             try
             {
-                serverListener = new TcpListener(IPAddress.Any, (STD_PORT + rubbish)); // začnemo server, ki posluša na TCP zahteve na danem IP ju ter portu
+                serverListener =
+                    new TcpListener(IPAddress.Any,
+                        (STD_PORT + rubbish)); // začnemo server, ki posluša na TCP zahteve na danem IP ju ter portu
                 serverListener.Start();
                 foundPort = true;
             }
@@ -84,7 +90,7 @@ public class BlockchainServer
             }
         }
     }
-    
+
     public void ConnectToPeer(IPAddress ipAddress, int port)
     {
         try
@@ -99,12 +105,13 @@ public class BlockchainServer
             Console.WriteLine("Connected to server with addreas: " + ipAddress.ToString() + ":" + port.ToString());
 
             syncBlockChainWithPeer(peer);
-            
+
             peer.clientThread = new Thread(new ParameterizedThreadStart(ListenToPeer));
             peer.clientThread.IsBackground = true;
             peer.clientThread.Start(peer);
             Peers.Add(peer);
-        } catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             Console.WriteLine("Error: " + ex.Message);
             Console.WriteLine(ex.StackTrace);
@@ -139,14 +146,14 @@ public class BlockchainServer
             }
         }
     }
-    
+
     void ListenToPeer(object oPeer)
     {
         Peer peer = (Peer)oPeer;
         TcpClient client = peer.client;
         using NetworkStream ns = client.GetStream();
         Console.WriteLine("Client has connected: " + client.Client.RemoteEndPoint?.ToString());
-        
+
         try
         {
             while (client.Connected)
@@ -166,6 +173,7 @@ public class BlockchainServer
                     }
                     else
                         BroadCastPacket(Peers, Command.NEW_BLOCK, packet.message);
+
                     if (dataQueue.Count > 0 && block.data.UUID == dataQueue.Peek().UUID)
                         dataQueue.Dequeue();
                     //OnBlockMined?.Invoke(block);
@@ -202,7 +210,7 @@ public class BlockchainServer
         {
             Console.WriteLine(e);
         }
-        
+
         Console.WriteLine("Client has disconnected");
         DissconectPeer(peer);
     }
@@ -213,14 +221,14 @@ public class BlockchainServer
         var Blocks = blockChain.getBlockChain();
         //do
         //{
-            //old.Clear();
+        //old.Clear();
         foreach (Block block in Blocks)
             SendEncryptedPacket(peer, Command.REQUESTED_BLOCK, block.Serialize());
         SendEncryptedPacket(peer, Command.END_OF_SYNC);
-            //Blocks = blockChain.getBlockChain();
-       // } while (old != Blocks);
+        //Blocks = blockChain.getBlockChain();
+        // } while (old != Blocks);
     }
-    
+
     void SendDataToPeer(Peer peer)
     {
         var datas = dataQueue.ToList();
@@ -250,7 +258,7 @@ public class BlockchainServer
 
         blockChain.setBlockChain(blocks);
     }
-    
+
     void RequestData(Peer peer)
     {
         SendEncryptedPacket(peer, Command.REQUEST_DATA);
@@ -269,12 +277,12 @@ public class BlockchainServer
         foreach (var data in missed)
             dataQueue.Enqueue(data);
     }
-    
+
     void CreateNewChain()
     {
         Console.WriteLine("Creating new blockchain");
-        Block currentBlock = new Block(new Data(Guid.NewGuid().ToString(), 0,0,0, new Prediction(1,0,0)), 0);
-        currentBlock.previousHash = new byte[]{0x0};
+        Block currentBlock = new Block(new Data(Guid.NewGuid().ToString(), 0, 0, 0, new Prediction(1, 0, 0)), 0);
+        currentBlock.previousHash = new byte[] { 0x0 };
         using (var sha256 = SHA256.Create())
             currentBlock.calculateAndSetHash(sha256);
         OnBlockMined?.Invoke(currentBlock);
@@ -284,7 +292,7 @@ public class BlockchainServer
     public void StartMining(int rank)
     {
         doMining = true;
-        if(blockChain.getCount() == 0)
+        if (blockChain.getCount() == 0)
             CreateNewChain();
         MPIServer(rank);
     }
@@ -299,7 +307,7 @@ public class BlockchainServer
             PrintByteArray(newBlock.hash);
             if (dataQueue.Count > 0 && dataQueue.Peek().UUID == newBlock.data.UUID)
                 dataQueue.Dequeue();
-            if(blockChain.addBlock(newBlock))
+            if (blockChain.addBlock(newBlock))
             {
                 BroadCastPacket(Peers, Command.NEW_BLOCK, newBlock.Serialize());
                 // remove data from the stack
@@ -309,7 +317,7 @@ public class BlockchainServer
             }
         }
     }
-    
+
     static int GetCurrentDifficulty(Block prevAdjustmentBlock)
     {
         long timeExpected = BLOCK_GENERATION_INTERVAL * DIFFICULTY_ADJUSTMENT_INTERVAL;
@@ -351,6 +359,7 @@ public class BlockchainServer
         {
             Console.WriteLine(e);
         }
+
         foreach (Peer peer in Peers)
         {
             try
@@ -363,6 +372,7 @@ public class BlockchainServer
                 Console.WriteLine(e);
             }
         }
+
         Peers.Clear();
     }
 
@@ -370,13 +380,17 @@ public class BlockchainServer
     {
         using (var comm = Intracommunicator.world)
         {
-            while (true)
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            int totalBlocksMined=0;
+            while (sw.ElapsedMilliseconds < 60000)
             {
                 try
                 {
                     CompletedStatus status;
                     string request;
-                    comm.Receive<string>(Communicator.anySource, Communicator.anyTag, out request, out status); // Listen for messages with tag 100
+                    comm.Receive<string>(Communicator.anySource, Communicator.anyTag, out request,
+                        out status); // Listen for messages with tag 100
                     int senderRank = status.Source;
                     //Console.WriteLine("Got request " + request);
 
@@ -397,6 +411,7 @@ public class BlockchainServer
                     }
                     else if (request.StartsWith("block_mined"))
                     {
+                        totalBlocksMined++;
                         string jsonBlock = request.Substring("block_mined".Length);
                         Block minedBlock = Block.Deserialize(jsonBlock);
                         if (dataQueue.Peek().UUID == minedBlock.data.UUID && blockChain.canBeAdded(minedBlock))
@@ -406,23 +421,32 @@ public class BlockchainServer
                                 if (i != senderRank)
                                     comm.Send("stop", i, 300); // Tag 300 for stop signal
 
-                            Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
+                            //Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
                         }
                         else
                         {
-                            Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
+                            //Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
                         }
+
+                        Console.WriteLine("time on end of mined block: " + sw.ElapsedMilliseconds);
+                        Console.WriteLine("blockchain size: " + blockChain.getCount());
+                        Console.WriteLine("total blocks mined: " + totalBlocksMined);
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    //Console.WriteLine(e);
                 }
             }
+            sw.Stop();
+            Console.WriteLine("ElapsedMilliseconds = " + sw.ElapsedMilliseconds);
+            Console.WriteLine("total blocks in chain: " + blockChain.getCount());
+            Console.WriteLine("total blocks mined: " + totalBlocksMined);
         }
+
         Console.WriteLine("Stopped server");
     }
-    
+
     public static void MPIClient(int rank)
     {
         Random rnd = new Random();
@@ -443,7 +467,7 @@ public class BlockchainServer
                 }
 
                 DataAndBlock db = DataAndBlock.Deserialize(data);
-                
+
                 Block block = new Block(db.data, db.block.index + 1, db.block.hash);
                 block.miner = "miner" + rank;
 
@@ -458,12 +482,14 @@ public class BlockchainServer
                     miners[i] = new Thread(() => Miner(block.Serialize(), db.block, comm, ref doMining));
                     miners[i].Start();
                 }
+
                 string stopSignal = comm.Receive<string>(0, 300);
                 if (stopSignal == "stop")
                 {
                     Console.WriteLine($"Miner {rank} received stop signal. Halting mining.");
                     doMining = false;
                 }
+
                 foreach (var miner in miners)
                 {
                     miner?.Join();
@@ -472,6 +498,7 @@ public class BlockchainServer
                 Console.WriteLine($"Miner {rank} stopped all threads.");
             }
         }
+
         Console.WriteLine("Stopped client");
     }
 
@@ -497,6 +524,7 @@ public class BlockchainServer
         }
         //Console.WriteLine("Stopping thread");
     }
+
     void DissconectPeer(Peer peer)
     {
         Console.WriteLine("Dissconecting peer");
