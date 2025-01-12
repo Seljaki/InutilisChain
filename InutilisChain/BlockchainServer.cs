@@ -410,13 +410,13 @@ public class BlockchainServer
                         }
                         else
                         {
-                            Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
+                            //Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    //Console.WriteLine(e);
                 }
             }
         }
@@ -432,7 +432,7 @@ public class BlockchainServer
         {
             while (true)
             {
-                Console.WriteLine("Sending get data request " + rank);
+                //Console.WriteLine("Sending get data request " + rank);
                 comm.Send("get_data", 0, 100);
                 string data = comm.Receive<string>(0, Communicator.anyTag);
                 //Console.WriteLine("Got data " + data);
@@ -461,7 +461,7 @@ public class BlockchainServer
                 string stopSignal = comm.Receive<string>(0, 300);
                 if (stopSignal == "stop")
                 {
-                    Console.WriteLine($"Miner {rank} received stop signal. Halting mining.");
+                    //Console.WriteLine($"Miner {rank} received stop signal. Halting mining.");
                     doMining = false;
                 }
                 foreach (var miner in miners)
@@ -469,7 +469,7 @@ public class BlockchainServer
                     miner?.Join();
                 }
 
-                Console.WriteLine($"Miner {rank} stopped all threads.");
+                //Console.WriteLine($"Miner {rank} stopped all threads.");
             }
         }
         Console.WriteLine("Stopped client");
