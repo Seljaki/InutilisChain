@@ -406,6 +406,7 @@ public class BlockchainServer
                                 if (i != senderRank)
                                     comm.Send("stop", i, 300); // Tag 300 for stop signal
 
+                            dataQueue.Dequeue();
                             Console.WriteLine($"Block added from miner with rank: {minedBlock.miner}");
                         }
                         else
