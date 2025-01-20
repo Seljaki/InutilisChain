@@ -428,9 +428,9 @@ public class BlockchainServer
                             //Console.WriteLine($"Got invalid block from rank: {minedBlock.miner}");
                         }
 
-                        Console.WriteLine("time on end of mined block: " + sw.ElapsedMilliseconds);
-                        Console.WriteLine("blockchain size: " + blockChain.getCount());
-                        Console.WriteLine("total blocks mined: " + totalBlocksMined);
+                        //Console.WriteLine("time on end of mined block: " + sw.ElapsedMilliseconds);
+                        //Console.WriteLine("blockchain size: " + blockChain.getCount());
+                        //Console.WriteLine("total blocks mined: " + totalBlocksMined);
                     }
                 }
                 catch (Exception e)
@@ -454,75 +454,69 @@ public class BlockchainServer
         Console.WriteLine("Starting client " + rank);
         using (var comm = Intracommunicator.world)
         {
-            while (true)
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            long totalBlocksMined=0;
+            //while (sw.ElapsedMilliseconds < 60000)
+            //Console.WriteLine("Sending get data request " + rank);
+            comm.Send("get_data", 0, 100);
+            string data = comm.Receive<string>(0, Communicator.anyTag);
+            //Console.WriteLine("Got data " + data);
+
+            if (string.IsNullOrEmpty(data) || data == "stop")
             {
-                Console.WriteLine("Sending get data request " + rank);
-                comm.Send("get_data", 0, 100);
-                string data = comm.Receive<string>(0, Communicator.anyTag);
-                //Console.WriteLine("Got data " + data);
-
-                if (string.IsNullOrEmpty(data) || data == "stop")
-                {
-                    continue;
-                }
-
-                DataAndBlock db = DataAndBlock.Deserialize(data);
-
-                Block block = new Block(db.data, db.block.index + 1, db.block.hash);
-                block.miner = "miner" + rank;
-
-                Boolean doMining = true;
-                int threadCount = System.Environment.ProcessorCount;
-                Thread[] miners = new Thread[threadCount];
-
-                // Start mining threads
-                for (int i = 0; i < threadCount; i++)
-                {
-                    int threadIndex = i; // To avoid closure issue
-                    miners[i] = new Thread(() => Miner(block.Serialize(), db.block, comm, ref doMining));
-                    miners[i].Start();
-                }
-
-                string stopSignal = comm.Receive<string>(0, 300);
-                if (stopSignal == "stop")
-                {
-                    Console.WriteLine($"Miner {rank} received stop signal. Halting mining.");
-                    doMining = false;
-                }
-
-                foreach (var miner in miners)
-                {
-                    miner?.Join();
-                }
-
-                Console.WriteLine($"Miner {rank} stopped all threads.");
+                return;
             }
+
+            DataAndBlock db = DataAndBlock.Deserialize(data);
+
+            Block block = new Block(db.data, db.block.index + 1, db.block.hash);
+            block.miner = "miner" + rank;
+
+            Boolean doMining = true;
+            int threadCount = 1;
+            Thread[] miners = new Thread[threadCount];
+
+            // Start mining threads
+            for (int i = 0; i < threadCount; i++)
+            {
+                int threadIndex = i; // To avoid closure issue
+                miners[i] = new Thread(() => Miner(block.Serialize(), db.block, comm, ref doMining, ref totalBlocksMined, sw));
+                miners[i].Start();
+            }
+            
+            foreach (var miner in miners)
+            {
+                miner?.Join();
+            }
+
+            //Console.WriteLine($"Miner {rank} stopped all threads.");
+            Console.WriteLine($"rank {rank} mined: {totalBlocksMined}");
         }
 
         Console.WriteLine("Stopped client");
     }
 
-    private static void Miner(String blockJson, Block lastBlock, Intracommunicator comm, ref Boolean doMining)
+    private static void Miner(String blockJson, Block lastBlock, Intracommunicator comm, ref Boolean doMining, ref long blocksMined, Stopwatch sw)
     {
         Random rnd = new Random();
         SHA256 sha256 = SHA256.Create();
         Block block = Block.Deserialize(blockJson);
-        //Console.WriteLine("Starting thread");
-        while (doMining)
+        Console.WriteLine("Starting thread");
+        while (sw.ElapsedMilliseconds < 10000)
         {
+            blocksMined++;
             block.nonce = rnd.Next();
             block.difficulty = GetCurrentDifficulty(lastBlock);
             block.setTimeStamp();
             block.calculateAndSetHash(sha256);
-
-            if (BlockChain.isValidBlock(lastBlock, block) && doMining)
+            if (BlockChain.isValidBlock(lastBlock, block))
             {
-                doMining = false; // Stop other threads
-                comm.Send($"block_mined{block.Serialize()}", 0, 200);
-                //Console.WriteLine($"Miner {rank} found a valid block.");
+                blocksMined++;
             }
+            //Console.WriteLine(sw.ElapsedMilliseconds);
         }
-        //Console.WriteLine("Stopping thread");
+        Console.WriteLine("Stopping thread");
     }
 
     void DissconectPeer(Peer peer)
