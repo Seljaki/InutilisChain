@@ -505,7 +505,7 @@ public class BlockchainServer
         Console.WriteLine("Starting thread");
         while (sw.ElapsedMilliseconds < 10000)
         {
-            blocksMined++;
+            Interlocked.Increment(ref blocksMined);;
             block.nonce = rnd.Next();
             block.difficulty = GetCurrentDifficulty(lastBlock);
             block.setTimeStamp();
